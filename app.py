@@ -290,7 +290,7 @@ if not filtered_df.empty:
         folium.TileLayer(
             'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
             attr='Esri',
-            name='Satellite'
+            name='openstreetmap'
         ).add_to(m)
 
         # Set default tile layer
