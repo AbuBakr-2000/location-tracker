@@ -68,6 +68,8 @@ def load_data():
     try:
         df = pd.read_csv('location_logs.csv')  # Updated path to look for CSV in the same directory
         df['timestamp'] = pd.to_datetime('2024-' + df['timestamp'], format='%Y-%m-%d %H:%M:%S.%f')
+        df['zip_file'] = df['zip_file'] + '/logs/' + df['log_file']
+        del df['log_file']
         return df
     except Exception as e:
         st.error(f"Error loading data: {e}")
