@@ -25,19 +25,6 @@ if 'authenticated' not in st.session_state:
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
 
-# Function to load data
-@st.cache_data
-def load_data():
-    try:
-        df = pd.read_csv('location_logs.csv')
-        df['timestamp'] = pd.to_datetime('2024-' + df['timestamp'], format='%Y-%m-%d %H:%M:%S.%f')
-        df['zip_file'] = df['zip_file'] + '/logs/' + df['log_file']
-        del df['log_file']
-        return df
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return pd.DataFrame()
-
 # Login page
 def show_login_page():
     # Create three columns for centering
@@ -117,13 +104,6 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
-    # Load data
-    try:
-        df = load_data()
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        st.stop()
-
     # Session state initialization
     if 'selected_date' not in st.session_state:
         st.session_state.selected_date = None
@@ -135,6 +115,15 @@ else:
         # st.title("📅 Calendar")
 
         # Date selection
+        try:
+            df = pd.read_csv('location_logs.csv')
+            df['timestamp'] = pd.to_datetime('2024-' + df['timestamp'], format='%Y-%m-%d %H:%M:%S.%f')
+            df['zip_file'] = df['zip_file'] + '/logs/' + df['log_file']
+            del df['log_file']
+        except Exception as e:
+            st.error(f"Error loading data: {e}")
+            st.stop()
+
         available_dates = df['timestamp'].dt.date.unique()
         selected_date = st.date_input(
             "Select Date",
