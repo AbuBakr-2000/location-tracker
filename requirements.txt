@@ -2,3 +2,8 @@ streamlit==1.29.0
 pandas==2.1.4
 folium==0.15.1
 streamlit-folium==0.15.1
+requests==2.31.0
+beautifulsoup4==4.12.2
+schedule==1.2.0
+aiohttp==3.9.1
+python-telegram-bot==20.6
