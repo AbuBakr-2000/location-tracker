@@ -22,8 +22,26 @@ if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 
 # Admin credentials from .env
-ADMIN_USERNAME = os.getenv('ADMIN_USERNAME')
-ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'akademiya2024')  # Default value if not in env
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'akademiya2023')  # Default value if not in env
+
+# Function to load data
+@st.cache_data
+def load_data():
+    try:
+        # Check if file exists
+        if not os.path.exists('location_logs.csv'):
+            st.error("Data file not found. Please make sure location_logs.csv exists.")
+            return pd.DataFrame()
+            
+        df = pd.read_csv('location_logs.csv')
+        df['timestamp'] = pd.to_datetime('2024-' + df['timestamp'], format='%Y-%m-%d %H:%M:%S.%f')
+        df['zip_file'] = df['zip_file'] + '/logs/' + df['log_file']
+        del df['log_file']
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return pd.DataFrame()
 
 # Login page
 def show_login_page():
@@ -115,190 +133,183 @@ else:
         # st.title("📅 Calendar")
 
         # Date selection
-        try:
-            df = pd.read_csv('location_logs.csv')
-            df['timestamp'] = pd.to_datetime('2024-' + df['timestamp'], format='%Y-%m-%d %H:%M:%S.%f')
-            df['zip_file'] = df['zip_file'] + '/logs/' + df['log_file']
-            del df['log_file']
-        except Exception as e:
-            st.error(f"Error loading data: {e}")
-            st.stop()
+        df = load_data()
+        if not df.empty:
+            available_dates = df['timestamp'].dt.date.unique()
+            selected_date = st.date_input(
+                "Select Date",
+                value=st.session_state.selected_date if st.session_state.selected_date else available_dates.min(),
+                min_value=available_dates.min(),
+                max_value=available_dates.max()
+            )
 
-        available_dates = df['timestamp'].dt.date.unique()
-        selected_date = st.date_input(
-            "Select Date",
-            value=st.session_state.selected_date if st.session_state.selected_date else available_dates.min(),
-            min_value=available_dates.min(),
-            max_value=available_dates.max()
-        )
-
-        # Clear selected hours if date changes
-        if selected_date != st.session_state.selected_date:
-            st.session_state.selected_hours = set()
-            st.session_state.selected_date = selected_date
-
-        # Get data for selected date
-        filtered_df = df[df['timestamp'].dt.date == selected_date]
-
-        if not filtered_df.empty:
-            # Hour buttons
-            # st.markdown("###  Hours")
-
-            # Fixed colors for each hour
-            hour_colors = {
-                0: '#8B0000', 1: '#006400', 2: '#00008B', 3: '#008B8B',
-                4: '#8B008B', 5: '#FF8C00', 6: '#9932CC', 7: '#2F4F4F',
-                8: '#556B2F', 9: '#8B4513', 10: '#1E90FF', 11: '#9400D3',
-                12: '#228B22', 13: '#B22222', 14: '#483D8B', 15: '#00CED1',
-                16: '#4682B4', 17: '#5F9EA0', 18: '#2E8B57', 19: '#6B8E23',
-                20: '#8A2BE2', 21: '#7B68EE', 22: '#191970', 23: '#800000'
-            }
-
-            # Available hours for the selected date
-            available_hours = sorted(filtered_df['timestamp'].dt.hour.unique())
-
-            # Custom CSS for button colors
-            button_css = ""
-            for hour in available_hours:
-                button_css += f"""
-                    [data-testid="baseButton-secondary"][aria-label="hour_{hour}"] {{
-                        background-color: {hour_colors[hour]} !important;
-                        color: white !important;
-                        border: none !important;
-                    }}
-                    [data-testid="baseButton-secondary"][aria-label="hour_{hour}"]:hover {{
-                        background-color: {hour_colors[hour]} !important;
-                        filter: brightness(120%);
-                    }}
-                """
-
-            st.markdown(f"""
-            <style>
-                {button_css}
-                [data-testid="baseButton-secondary"] {{
-                    font-weight: bold !important;
-                }}
-            </style>
-            """, unsafe_allow_html=True)
-
-            # "All" button
-            if st.button(" All Hours",
-                        type="primary" if not st.session_state.selected_hours else "secondary",
-                        use_container_width=True,
-                        key="all_hours"):
+            # Clear selected hours if date changes
+            if selected_date != st.session_state.selected_date:
                 st.session_state.selected_hours = set()
-                st.rerun()
+                st.session_state.selected_date = selected_date
 
-            # Hour buttons
-            cols = st.columns(3)
-            for i, hour in enumerate(available_hours):
-                col_idx = i % 3
-                with cols[col_idx]:
-                    if st.button(
-                        f"{hour:02d}:00",
-                        key=f"hour_{hour}",
-                        type="primary" if hour in st.session_state.selected_hours else "secondary",
-                        use_container_width=True,
-                        help=f"View data for {hour:02d}:00"
-                    ):
-                        if hour in st.session_state.selected_hours:
-                            st.session_state.selected_hours.remove(hour)
-                        else:
-                            st.session_state.selected_hours.add(hour)
-                        st.rerun()
+            # Get data for selected date
+            filtered_df = df[df['timestamp'].dt.date == selected_date]
 
-            # Data list section
-            st.markdown('<div class="data-section">', unsafe_allow_html=True)
-            st.markdown("### Data Analysis")
+            if not filtered_df.empty:
+                # Hour buttons
+                # st.markdown("###  Hours")
 
-            # Display statistics
-            total_points = len(filtered_df)
-            unique_zips = filtered_df['zip_file'].nunique()
+                # Fixed colors for each hour
+                hour_colors = {
+                    0: '#8B0000', 1: '#006400', 2: '#00008B', 3: '#008B8B',
+                    4: '#8B008B', 5: '#FF8C00', 6: '#9932CC', 7: '#2F4F4F',
+                    8: '#556B2F', 9: '#8B4513', 10: '#1E90FF', 11: '#9400D3',
+                    12: '#228B22', 13: '#B22222', 14: '#483D8B', 15: '#00CED1',
+                    16: '#4682B4', 17: '#5F9EA0', 18: '#2E8B57', 19: '#6B8E23',
+                    20: '#8A2BE2', 21: '#7B68EE', 22: '#191970', 23: '#800000'
+                }
 
-            # Create summary statistics DataFrame
-            stats_data = {
-                'Metric': [
-                    '1. Total Coordinates',
-                    '2. Unique ZIP Files',
-                    '3. Start Time',
-                    '4. End Time',
-                    '5. First Location',
-                    '6. Last Location'
-                ],
-                'Value': [
-                    f"{total_points:,}",
-                    f"{unique_zips:,}",
-                    filtered_df['timestamp'].min().strftime('%Y-%m-%d %H:%M:%S') if not filtered_df.empty else "N/A",
-                    filtered_df['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S') if not filtered_df.empty else "N/A",
-                    f"({filtered_df.iloc[0]['latitude']:.6f}, {filtered_df.iloc[0]['longitude']:.6f})" if not filtered_df.empty else "N/A",
-                    f"({filtered_df.iloc[-1]['latitude']:.6f}, {filtered_df.iloc[-1]['longitude']:.6f})" if not filtered_df.empty else "N/A"
-                ]
-            }
+                # Available hours for the selected date
+                available_hours = sorted(filtered_df['timestamp'].dt.hour.unique())
 
-            # Display summary statistics as a table
-            st.markdown("#### Summary Statistics")
-            stats_df = pd.DataFrame(stats_data)
-            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+                # Custom CSS for button colors
+                button_css = ""
+                for hour in available_hours:
+                    button_css += f"""
+                        [data-testid="baseButton-secondary"][aria-label="hour_{hour}"] {{
+                            background-color: {hour_colors[hour]} !important;
+                            color: white !important;
+                            border: none !important;
+                        }}
+                        [data-testid="baseButton-secondary"][aria-label="hour_{hour}"]:hover {{
+                            background-color: {hour_colors[hour]} !important;
+                            filter: brightness(120%);
+                        }}
+                    """
 
-            # Display filtered data based on selected hours
-            if st.session_state.selected_hours:
-                display_df = filtered_df[filtered_df['timestamp'].dt.hour.isin(st.session_state.selected_hours)]
-                hours_str = ", ".join(f"{hour:02d}:00" for hour in sorted(st.session_state.selected_hours))
-                st.markdown(f"#### Selected Times: {hours_str}")
+                st.markdown(f"""
+                <style>
+                    {button_css}
+                    [data-testid="baseButton-secondary"] {{
+                        font-weight: bold !important;
+                    }}
+                </style>
+                """, unsafe_allow_html=True)
 
-                # Show points per hour with percentage
-                st.markdown("#### Points Distribution by Hour")
-                hour_counts = display_df.groupby(display_df['timestamp'].dt.hour).size()
-                total = hour_counts.sum()
-                hour_data = pd.DataFrame({
-                    'Hour': [f"{hour:02d}:00" for hour in hour_counts.index],
-                    'Points': hour_counts.values,
-                    'Percentage': [f"{(count/total*100):.1f}%" for count in hour_counts.values]
-                }).reset_index(drop=True)
-                hour_data.index = hour_data.index + 1
-                st.dataframe(hour_data, use_container_width=True)
+                # "All" button
+                if st.button(" All Hours",
+                            type="primary" if not st.session_state.selected_hours else "secondary",
+                            use_container_width=True,
+                            key="all_hours"):
+                    st.session_state.selected_hours = set()
+                    st.rerun()
+
+                # Hour buttons
+                cols = st.columns(3)
+                for i, hour in enumerate(available_hours):
+                    col_idx = i % 3
+                    with cols[col_idx]:
+                        if st.button(
+                            f"{hour:02d}:00",
+                            key=f"hour_{hour}",
+                            type="primary" if hour in st.session_state.selected_hours else "secondary",
+                            use_container_width=True,
+                            help=f"View data for {hour:02d}:00"
+                        ):
+                            if hour in st.session_state.selected_hours:
+                                st.session_state.selected_hours.remove(hour)
+                            else:
+                                st.session_state.selected_hours.add(hour)
+                            st.rerun()
+
+                # Data list section
+                st.markdown('<div class="data-section">', unsafe_allow_html=True)
+                st.markdown("### Data Analysis")
+
+                # Display statistics
+                total_points = len(filtered_df)
+                unique_zips = filtered_df['zip_file'].nunique()
+
+                # Create summary statistics DataFrame
+                stats_data = {
+                    'Metric': [
+                        '1. Total Coordinates',
+                        '2. Unique ZIP Files',
+                        '3. Start Time',
+                        '4. End Time',
+                        '5. First Location',
+                        '6. Last Location'
+                    ],
+                    'Value': [
+                        f"{total_points:,}",
+                        f"{unique_zips:,}",
+                        filtered_df['timestamp'].min().strftime('%Y-%m-%d %H:%M:%S') if not filtered_df.empty else "N/A",
+                        filtered_df['timestamp'].max().strftime('%Y-%m-%d %H:%M:%S') if not filtered_df.empty else "N/A",
+                        f"({filtered_df.iloc[0]['latitude']:.6f}, {filtered_df.iloc[0]['longitude']:.6f})" if not filtered_df.empty else "N/A",
+                        f"({filtered_df.iloc[-1]['latitude']:.6f}, {filtered_df.iloc[-1]['longitude']:.6f})" if not filtered_df.empty else "N/A"
+                    ]
+                }
+
+                # Display summary statistics as a table
+                st.markdown("#### Summary Statistics")
+                stats_df = pd.DataFrame(stats_data)
+                st.dataframe(stats_df, use_container_width=True, hide_index=True)
+
+                # Display filtered data based on selected hours
+                if st.session_state.selected_hours:
+                    display_df = filtered_df[filtered_df['timestamp'].dt.hour.isin(st.session_state.selected_hours)]
+                    hours_str = ", ".join(f"{hour:02d}:00" for hour in sorted(st.session_state.selected_hours))
+                    st.markdown(f"#### Selected Times: {hours_str}")
+
+                    # Show points per hour with percentage
+                    st.markdown("#### Points Distribution by Hour")
+                    hour_counts = display_df.groupby(display_df['timestamp'].dt.hour).size()
+                    total = hour_counts.sum()
+                    hour_data = pd.DataFrame({
+                        'Hour': [f"{hour:02d}:00" for hour in hour_counts.index],
+                        'Points': hour_counts.values,
+                        'Percentage': [f"{(count/total*100):.1f}%" for count in hour_counts.values]
+                    }).reset_index(drop=True)
+                    hour_data.index = hour_data.index + 1
+                    st.dataframe(hour_data, use_container_width=True)
+                else:
+                    display_df = filtered_df
+                    st.markdown("#### All Data")
+
+                    # Show points per hour with percentage for all data
+                    st.markdown("#### Points Distribution by Hour")
+                    hour_counts = display_df.groupby(display_df['timestamp'].dt.hour).size()
+                    total = hour_counts.sum()
+                    hour_data = pd.DataFrame({
+                        'Hour': [f"{hour:02d}:00" for hour in hour_counts.index],
+                        'Points': hour_counts.values,
+                        'Percentage': [f"{(count/total*100):.1f}%" for count in hour_counts.values]
+                    }).reset_index(drop=True)
+                    hour_data.index = hour_data.index + 1
+                    st.dataframe(hour_data, use_container_width=True)
+
+                # Format the timestamp for display and add index
+                display_df = display_df.copy()
+                display_df['timestamp'] = display_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+
+                # Reset index to start from 1 and rename it
+                display_df_with_index = display_df.reset_index(drop=True)
+                display_df_with_index.index = display_df_with_index.index + 1
+
+                st.dataframe(
+                    display_df_with_index[['timestamp', 'latitude', 'longitude', 'zip_file']],
+                    use_container_width=True,
+                    height=300
+                )
+
+                # CSV export button
+                csv = display_df[['timestamp', 'latitude', 'longitude', 'zip_file']].to_csv(index=False)
+                st.download_button(
+                    label=" Download as CSV",
+                    data=csv,
+                    file_name=f"location_data_{selected_date}.csv",
+                    mime="text/csv",
+                    key="download_csv"
+                )
+                st.markdown('</div>', unsafe_allow_html=True)
             else:
-                display_df = filtered_df
-                st.markdown("#### All Data")
-
-                # Show points per hour with percentage for all data
-                st.markdown("#### Points Distribution by Hour")
-                hour_counts = display_df.groupby(display_df['timestamp'].dt.hour).size()
-                total = hour_counts.sum()
-                hour_data = pd.DataFrame({
-                    'Hour': [f"{hour:02d}:00" for hour in hour_counts.index],
-                    'Points': hour_counts.values,
-                    'Percentage': [f"{(count/total*100):.1f}%" for count in hour_counts.values]
-                }).reset_index(drop=True)
-                hour_data.index = hour_data.index + 1
-                st.dataframe(hour_data, use_container_width=True)
-
-            # Format the timestamp for display and add index
-            display_df = display_df.copy()
-            display_df['timestamp'] = display_df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
-
-            # Reset index to start from 1 and rename it
-            display_df_with_index = display_df.reset_index(drop=True)
-            display_df_with_index.index = display_df_with_index.index + 1
-
-            st.dataframe(
-                display_df_with_index[['timestamp', 'latitude', 'longitude', 'zip_file']],
-                use_container_width=True,
-                height=300
-            )
-
-            # CSV export button
-            csv = display_df[['timestamp', 'latitude', 'longitude', 'zip_file']].to_csv(index=False)
-            st.download_button(
-                label=" Download as CSV",
-                data=csv,
-                file_name=f"location_data_{selected_date}.csv",
-                mime="text/csv",
-                key="download_csv"
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.warning("No data available for this date")
+                st.warning("No data available for this date")
 
     # Map (75% section)
     if not filtered_df.empty:
