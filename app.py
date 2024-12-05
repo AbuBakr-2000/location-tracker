@@ -20,17 +20,17 @@ st.set_page_config(
 
 # If first time or not authenticated, redirect to login
 if "authenticated" not in st.session_state:
-    st.switch_page("pages/login.py")
+    st.switch_page("pages/Login.py")
 
 # Check authentication and session expiry
 if not st.session_state.get("authenticated"):
-    st.switch_page("pages/login.py")
+    st.switch_page("pages/Login.py")
 
 if not st.session_state.get("login_time") or \
    datetime.now() - st.session_state["login_time"] > timedelta(hours=3):
     st.session_state["authenticated"] = False
     st.session_state["login_time"] = None
-    st.switch_page("pages/login.py")
+    st.switch_page("pages/Login.py")
 
 # Initialize other states
 if "selected_hours" not in st.session_state:
@@ -41,7 +41,7 @@ with st.sidebar:
     if st.button("Logout"):
         st.session_state["authenticated"] = False
         st.session_state["login_time"] = None
-        st.switch_page("pages/login.py")
+        st.switch_page("pages/Login.py")
 
 # Main content
 st.title("Location Tracking")
